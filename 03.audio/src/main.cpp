@@ -1,19 +1,17 @@
 #include <Arduino.h>
-#include "SPIFFS.h"
 #include "Audio.h"
 #include <WiFiManager.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <QuickEspNow.h>
 
-
 #define I2S_DOUT      25
 #define I2S_BCLK      27
 #define I2S_LRC       26
 
 // MAC cua 2 esp8266
-// uint8_t esp8266_heart_rate[] = {0xAC, 0x67, 0xB2, 0x1A, 0x2B, 0x3C};
-// uint8_t esp8266_distance[] = {0xAC, 0x67, 0xB2, 0x4D, 0x5E, 0x6F};
+uint8_t esp8266_heart_rate[] = {0x8c, 0x4f, 0x00, 0xe0, 0x39, 0x02};
+uint8_t esp8266_distance[] = {0xAC, 0x67, 0xB2, 0x4D, 0x5E, 0x6F};
 
 IPAddress local_IP(192, 168, 1, 101);
 IPAddress gateway(192, 168, 1, 1);
@@ -25,30 +23,34 @@ Audio audio;
 
 void wifiSetup();
 
-// bool compareMac(uint8_t* esp8266_heart_rate, uint8_t* esp8266_distance) {
-//     for (int i = 0; i < 6; i++) {
-//       if (esp8266_heart_rate[i] != esp8266_distance[i]) return false;
-//     }
-//     return true;
-// }
+bool compareMac(uint8_t* esp8266_heart_rate, uint8_t* esp8266_distance) {
+    for (int i = 0; i < 6; i++) {
+      if (esp8266_heart_rate[i] != esp8266_distance[i]) return false;
+    }
+    return true;
+}
 
-// void dataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
-//     Serial.printf("Received from " MACSTR ": %.*s\n", MAC2STR(address), len, data);
+void dataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+    Serial.printf("Received from " MACSTR ": %.*s\n", MAC2STR(address), len, data);
   
-//     if (compareMac(address, esp8266_heart_rate)) {
-//         Serial.println(">>> Dữ liệu đến từ ESP8266 số 1");
-//         int receivedNumber = atoi((char*)data);
-//         if (receivedNumber <= 50) {
-//             audio.connecttospeech("Hãy chú ý, có chướng ngại vật phía trước, "vi");
-//         }
-//     } 
-//     else (compareMac(address, esp8266_distance)) {
-//         Serial.println(">>> Dữ liệu đến từ ESP8266 số 2");
-//         if (receivedNumber >= 110) {
-//             audio.connecttospeech("Chú ý, Nhịp tim đang không ổn định, "vi");
-//         }
-//     }
-// }
+    if (compareMac(address, esp8266_heart_rate)) {
+        Serial.println(">>> Dữ liệu đến từ ESP8266 số 1");
+        int receivedNumber = data[0]; 
+        Serial.printf("BPM = %d\n", receivedNumber);
+        if (receivedNumber >=  120) {
+            audio.connecttospeech("Chú ý, Nhịp tim đang không ổn định", "vi");
+        }
+    } 
+    else if (compareMac(address, esp8266_distance)) {
+        Serial.println(">>> Dữ liệu đến từ ESP8266 số 2");
+        int receivedNumber = data[0]; 
+        Serial.printf("BPM = %d\n", receivedNumber);
+        if (receivedNumber <= 50) {
+            audio.connecttospeech("Hãy chú ý, có chướng ngại vật phía trước", "vi");
+        }
+    }
+    
+}
 
 void setup() {
     Serial.begin(115200);
@@ -57,10 +59,10 @@ void setup() {
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(200);
     audio.connecttospeech("Xin chào tôi là smart chair, trợ lý sức khỏe của bạn", "vi"); // Google TTS
-    // WiFi.disconnect(false, true);
+    WiFi.disconnect(false, true);
 
-    // quickEspNow.onDataRcvd(dataReceived);
-    // quickEspNow.begin(1, 0, false); // channel 1
+    quickEspNow.onDataRcvd(dataReceived);
+    quickEspNow.begin(1, 0, false); // channel 1
 }
 
 
